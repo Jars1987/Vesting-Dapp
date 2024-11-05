@@ -1,94 +1,27 @@
 # token-vesting
 
-## Getting Started
+## Proposal
 
-### Prerequisites
+This dapp proposes to build a vesting contract that will be done between 2
+parties, the employer and the employee.
 
-- Node v18.18.0 or higher
+## Method
 
-- Rust v1.77.2 or higher
-- Anchor CLI 0.30.1 or higher
-- Solana CLI 1.18.17 or higher
+The first step is to initialize the Vesting contract. Then we need to give the
+employer the ability to add employees and lastly allow employees to to claim the
+tokens once they are vested.
 
-### Installation
+### Walkthrough
 
-#### Clone the repo
+The first thing that was built in the program were the AccountVesting Accounts
+and the create_vesting_account instructions.
 
-```shell
-git clone <repo-url>
-cd <repo-name>
-```
+Second, the employee also need a vesting account to hold the information
+regarding their vesting tokens, like clif time and how many tokens alocated. So
+we build a state account, the accounts struct and the the instructions.
 
-#### Install Dependencies
+Then we proceed to buil the create_employee_account instructions, respective
+context and state account.
 
-```shell
-pnpm install
-```
-
-#### Start the web app
-
-```
-pnpm dev
-```
-
-## Apps
-
-### anchor
-
-This is a Solana program written in Rust using the Anchor framework.
-
-#### Commands
-
-You can use any normal anchor commands. Either move to the `anchor` directory and run the `anchor` command or prefix the command with `pnpm`, eg: `pnpm anchor`.
-
-#### Sync the program id:
-
-Running this command will create a new keypair in the `anchor/target/deploy` directory and save the address to the Anchor config file and update the `declare_id!` macro in the `./src/lib.rs` file of the program.
-
-You will manually need to update the constant in `anchor/lib/counter-exports.ts` to match the new program id.
-
-```shell
-pnpm anchor keys sync
-```
-
-#### Build the program:
-
-```shell
-pnpm anchor-build
-```
-
-#### Start the test validator with the program deployed:
-
-```shell
-pnpm anchor-localnet
-```
-
-#### Run the tests
-
-```shell
-pnpm anchor-test
-```
-
-#### Deploy to Devnet
-
-```shell
-pnpm anchor deploy --provider.cluster devnet
-```
-
-### web
-
-This is a React app that uses the Anchor generated client to interact with the Solana program.
-
-#### Commands
-
-Start the web app
-
-```shell
-pnpm dev
-```
-
-Build the web app
-
-```shell
-pnpm build
-```
+The program final step is to create the ClaimToken accounts and instructions.
+This is where most of the logic will be held.
