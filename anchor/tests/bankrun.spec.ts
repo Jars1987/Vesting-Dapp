@@ -166,7 +166,7 @@ describe('Vesting Smart Contract Tests', () => {
 
     console.log('Employee account', employeeAccount.toBase58());
 
-    const tx3 = await program2.methods
+    const tx3 = await program2.methods //using the beneficiary provider to claim the tokens
       .claimTokens(companyName)
       .accounts({
         tokenProgram: TOKEN_PROGRAM_ID,

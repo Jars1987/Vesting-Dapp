@@ -1,104 +1,124 @@
-'use client'
+'use client';
 
-import {getTokenvestingProgram, getTokenvestingProgramId} from '@project/anchor'
-import {useConnection} from '@solana/wallet-adapter-react'
-import {Cluster, Keypair, PublicKey} from '@solana/web3.js'
-import {useMutation, useQuery} from '@tanstack/react-query'
-import {useMemo} from 'react'
-import toast from 'react-hot-toast'
-import {useCluster} from '../cluster/cluster-data-access'
-import {useAnchorProvider} from '../solana/solana-provider'
-import {useTransactionToast} from '../ui/ui-layout'
+import {
+  getTokenvestingProgram,
+  getTokenvestingProgramId,
+} from '@project/anchor';
+import { useConnection } from '@solana/wallet-adapter-react';
+import { Cluster, PublicKey } from '@solana/web3.js';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import toast from 'react-hot-toast';
+import { useCluster } from '../cluster/cluster-data-access';
+import { useAnchorProvider } from '../solana/solana-provider';
+import { useTransactionToast } from '../ui/ui-layout';
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import BN from 'bn.js';
 
+interface CreateVestingArgs {
+  companyName: string;
+  mint: string; //this is made in the contexst when creating the vesting account but since this will be passed in the FO we use a string and later when we are generating a value we will hace to generate a new PublicKey from it
+}
+
+interface CreateEmployeeArgs {
+  startTime: number;
+  endTime: number;
+  totalAmount: number;
+  cliffTime: number;
+  beneficiary: string;
+}
+
+//set the program and initialize accounts
 export function useTokenvestingProgram() {
-  const { connection } = useConnection()
-  const { cluster } = useCluster()
-  const transactionToast = useTransactionToast()
-  const provider = useAnchorProvider()
-  const programId = useMemo(() => getTokenvestingProgramId(cluster.network as Cluster), [cluster])
-  const program = getTokenvestingProgram(provider)
+  const { connection } = useConnection();
+  const { cluster } = useCluster();
+  const transactionToast = useTransactionToast();
+  const provider = useAnchorProvider();
+  const programId = useMemo(
+    () => getTokenvestingProgramId(cluster.network as Cluster),
+    [cluster]
+  );
+  const program = getTokenvestingProgram(provider);
 
   const accounts = useQuery({
     queryKey: ['tokenvesting', 'all', { cluster }],
-    queryFn: () => program.account.tokenvesting.all(),
-  })
+    queryFn: () => program.account.vestingAccount.all(),
+  });
 
   const getProgramAccount = useQuery({
     queryKey: ['get-program-account', { cluster }],
     queryFn: () => connection.getParsedAccountInfo(programId),
-  })
+  });
 
-  const initialize = useMutation({
-    mutationKey: ['tokenvesting', 'initialize', { cluster }],
-    mutationFn: (keypair: Keypair) =>
-      program.methods.initialize().accounts({ tokenvesting: keypair.publicKey }).signers([keypair]).rpc(),
-    onSuccess: (signature) => {
-      transactionToast(signature)
-      return accounts.refetch()
+  //we tell the useMutation what to expect String, Error and our Arguments
+  const createVestingAccount = useMutation<string, Error, CreateVestingArgs>({
+    mutationKey: ['vestingAccount', 'create', { cluster }],
+    mutationFn: (
+      { companyName, mint } //These are the arguments we are grabing from the FO
+    ) =>
+      program.methods
+        .createVestingAccount(companyName)
+        //we are creating a new PublicKey type because the mint is a string
+        .accounts({ mint: new PublicKey(mint), tokenProgram: TOKEN_PROGRAM_ID })
+        .rpc(),
+    onSuccess: signature => {
+      transactionToast(signature);
+      return accounts.refetch();
     },
-    onError: () => toast.error('Failed to initialize account'),
-  })
+    onError: () => toast.error('Failed to create vesting account'),
+  });
 
   return {
     program,
     programId,
     accounts,
     getProgramAccount,
-    initialize,
-  }
+    createVestingAccount,
+  };
 }
 
-export function useTokenvestingProgramAccount({ account }: { account: PublicKey }) {
-  const { cluster } = useCluster()
-  const transactionToast = useTransactionToast()
-  const { program, accounts } = useTokenvestingProgram()
+//Set the functions with the instructions
+export function useTokenvestingProgramAccount({
+  account,
+}: {
+  account: PublicKey;
+}) {
+  const { cluster } = useCluster();
+  const transactionToast = useTransactionToast();
+  const { program, accounts } = useTokenvestingProgram();
 
   const accountQuery = useQuery({
     queryKey: ['tokenvesting', 'fetch', { cluster, account }],
-    queryFn: () => program.account.tokenvesting.fetch(account),
-  })
+    queryFn: () => program.account.vestingAccount.fetch(account),
+  });
 
-  const closeMutation = useMutation({
-    mutationKey: ['tokenvesting', 'close', { cluster, account }],
-    mutationFn: () => program.methods.close().accounts({ tokenvesting: account }).rpc(),
-    onSuccess: (tx) => {
-      transactionToast(tx)
-      return accounts.refetch()
+  const createEmployeeAccount = useMutation<string, Error, CreateEmployeeArgs>({
+    mutationKey: ['vestingAccount', 'create', { cluster }],
+    mutationFn: ({ startTime, endTime, totalAmount, cliffTime, beneficiary }) =>
+      program.methods
+        .createEmployeeAccount(
+          //This function expects arguments of type BN not number. So we need to convert thevalues to BN before passing them:
+          new BN(startTime),
+          new BN(endTime),
+          new BN(totalAmount),
+          new BN(cliffTime)
+        )
+        //we are creating a new PublicKey type because the mint is a string
+        .accounts({
+          beneficiary: new PublicKey(beneficiary),
+          vestingAccount: account,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc(),
+    onSuccess: signature => {
+      transactionToast(signature);
+      return accounts.refetch();
     },
-  })
-
-  const decrementMutation = useMutation({
-    mutationKey: ['tokenvesting', 'decrement', { cluster, account }],
-    mutationFn: () => program.methods.decrement().accounts({ tokenvesting: account }).rpc(),
-    onSuccess: (tx) => {
-      transactionToast(tx)
-      return accountQuery.refetch()
-    },
-  })
-
-  const incrementMutation = useMutation({
-    mutationKey: ['tokenvesting', 'increment', { cluster, account }],
-    mutationFn: () => program.methods.increment().accounts({ tokenvesting: account }).rpc(),
-    onSuccess: (tx) => {
-      transactionToast(tx)
-      return accountQuery.refetch()
-    },
-  })
-
-  const setMutation = useMutation({
-    mutationKey: ['tokenvesting', 'set', { cluster, account }],
-    mutationFn: (value: number) => program.methods.set(value).accounts({ tokenvesting: account }).rpc(),
-    onSuccess: (tx) => {
-      transactionToast(tx)
-      return accountQuery.refetch()
-    },
-  })
+    onError: () => toast.error('Failed to create employee account'),
+  });
 
   return {
     accountQuery,
-    closeMutation,
-    decrementMutation,
-    incrementMutation,
-    setMutation,
-  }
+    createEmployeeAccount,
+  };
 }
