@@ -2,6 +2,8 @@ import * as anchor from '@coral-xyz/anchor';
 import { BankrunProvider } from 'anchor-bankrun';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { BN, Program } from '@coral-xyz/anchor';
+// @ts-ignore
+import { createMint, mintTo } from 'spl-token-bankrun';
 
 import {
   startAnchor,
@@ -9,9 +11,6 @@ import {
   BanksClient,
   ProgramTestContext,
 } from 'solana-bankrun';
-
-// @ts-ignore
-import { createMint, mintTo } from 'spl-token-bankrun';
 
 import { PublicKey, Keypair } from '@solana/web3.js';
 import NodeWallet from '@coral-xyz/anchor/dist/cjs/nodewallet';
@@ -41,10 +40,11 @@ describe('Vesting Smart Contract Tests', () => {
 
     // set up bankrun
     context = await startAnchor(
-      '', //path to the root of the anchor project but we created a features folder with the tokenveting.so file it can be an empty string
-      [{ name: 'tokenvesting', programId: new PublicKey(IDL.address) }], // now we setup the vesting program and the name needs to be the same as the so file
+      '', //path to the root of the anchor project (we created a features folder with the tokenveting.so file it can be an empty string)
+      [{ name: 'tokenvesting', programId: new PublicKey(IDL.address) }], // Array of programs that need to be dployed. !! IMPORTANT !! the program name needs to be the same as the "so" file
       [
         {
+          //accounts that need to be created in this enviorement
           address: beneficiary.publicKey,
           info: {
             lamports: 1_000_000_000,
@@ -55,6 +55,7 @@ describe('Vesting Smart Contract Tests', () => {
         },
       ]
     );
+
     provider = new BankrunProvider(context);
 
     anchor.setProvider(provider);
@@ -65,8 +66,8 @@ describe('Vesting Smart Contract Tests', () => {
 
     employer = provider.wallet.payer;
 
-    // Create a new mint
-    // @ts-ignore
+    // Create a new mint so that we have a token to work with
+
     mint = await createMint(banksClient, employer, employer.publicKey, null, 2);
 
     // Generate a new keypair for the beneficiary
@@ -124,7 +125,6 @@ describe('Vesting Smart Contract Tests', () => {
   it('should fund the treasury token account', async () => {
     const amount = 10_000 * 10 ** 9;
     const mintTx = await mintTo(
-      // @ts-ignores
       banksClient,
       employer,
       mint,
@@ -138,7 +138,7 @@ describe('Vesting Smart Contract Tests', () => {
 
   it('should create an employee vesting account', async () => {
     const tx2 = await program.methods
-      .createEmployeeAccount(new BN(0), new BN(100), new BN(100), new BN(0))
+      .createEmployeeAccount(new BN(0), new BN(100), new BN(100), new BN(0)) //BN for ts to be able to work with big numbers
       .accounts({
         beneficiary: beneficiary.publicKey,
         vestingAccount: vestingAccountKey,
@@ -153,7 +153,7 @@ describe('Vesting Smart Contract Tests', () => {
   it('should claim tokens', async () => {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    const currentClock = await banksClient.getClock();
+    const currentClock = await banksClient.getClock(); //making the time pass to be able to claimn the tokens
     context.setClock(
       new Clock(
         currentClock.slot,
